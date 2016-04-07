@@ -57,7 +57,7 @@ particleFilter::particleFilter(int n_particles, cspace b_init[2],
 	createParticles(particles0, b_Xprior, numParticles);
 
 	particles_1 = new cspace[numParticles];
-	W = new double[numParticles];
+	//W = new double[numParticles];
 }
 
 /*
@@ -70,8 +70,8 @@ particleFilter::particleFilter(int n_particles, cspace b_init[2],
  */
 void particleFilter::addObservation(double obs[2][3], vector<vec4x3> &mesh, distanceTransform *dist_transform, int idx_obs)
 {
-	std::default_random_engine generator;
-	normal_distribution<double> dist2(0, Xstd_scatter);
+	std::random_device generator;
+	std::normal_distribution<double> dist2(0, Xstd_scatter);
 
 	if (!firstObs) {
 		bzero(b_Xpre, 2 * sizeof(cspace));
@@ -94,10 +94,10 @@ void particleFilter::addObservation(double obs[2][3], vector<vec4x3> &mesh, dist
 		memcpy(particles0, particles, numParticles*sizeof(cspace));
 		memcpy(particles_1, particles, numParticles*sizeof(cspace));
 	}
-	else if (iffar == true)
+	/*else if (iffar == true)
 	{
 		memcpy(particles0, particles_1, numParticles*sizeof(cspace));
-	}
+	}*/
 	//calcWeight(W, numParticles, Xstd_tran, particles0, particles);
 	memcpy(particles_1, particles0, numParticles*sizeof(cspace));
 	//resampleParticles(particles0, particles, W, numParticles);
@@ -119,7 +119,7 @@ void particleFilter::addObservation(double obs[2][3], vector<vec4x3> &mesh, dist
 	}
 	particles_est_stat[1] = sqrt(particles_est_stat[1] / numParticles);
 
-	if (particles_est_stat[1] < 0.005 && (abs(particles_est[0] - b_Xpre[0][0])>0.001 ||
+	/*if (particles_est_stat[1] < 0.005 && (abs(particles_est[0] - b_Xpre[0][0])>0.001 ||
 		abs(particles_est[1] - b_Xpre[0][1])>0.001 ||
 		abs(particles_est[2] - b_Xpre[0][2])>0.001 ||
 		abs(particles_est[3] - b_Xpre[0][3])>0.001 ||
@@ -127,7 +127,7 @@ void particleFilter::addObservation(double obs[2][3], vector<vec4x3> &mesh, dist
 		abs(particles_est[5] - b_Xpre[0][5]) > 0.001))
 		Xstd_scatter = 0.01;
 	else
-		Xstd_scatter = 0.0001;
+		Xstd_scatter = 0.0001;*/
 }
 
 /*
@@ -140,15 +140,15 @@ void particleFilter::addObservation(double obs[2][3], vector<vec4x3> &mesh, dist
 void particleFilter::createParticles(cspace *particles, cspace b_Xprior[2],
 	int n_particles)
 {
-	random_device rd;
-	mt19937 e2(rd());
-	normal_distribution<double> dist(0, 1);
+	std::random_device rd;
+	//mt19937 e2(rd());
+	std::normal_distribution<double> dist(0, 1);
 	int cdim = sizeof(cspace) / sizeof(double);
 	for (int i = 0; i < n_particles; i++)
 	{
 		for (int j = 0; j < cdim; j++)
 		{
-			particles[i][j] = b_Xprior[0][j] + b_Xprior[1][j] * (dist(e2));
+			particles[i][j] = b_Xprior[0][j] + b_Xprior[1][j] * (dist(rd));
 		}
 	}
 };
@@ -171,10 +171,9 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 		vector<vec4x3> &mesh, int idx_Measure, distanceTransform *dist_transform, int n_particles,
 		double R, double Xstd_ob, double Xstd_tran)
 {
-	random_device rd;
-	mt19937 e2(rd());
-	normal_distribution<double> dist(0, 1);
-	uniform_real_distribution<double> distribution(0, n_particles);
+	std::random_device rd;
+	std::normal_distribution<double> dist(0, 1);
+	std::uniform_real_distribution<double> distribution(0, n_particles);
 	int cdim = sizeof(cspace) / sizeof(double);
 	int i = 0;
 	int count = 0;
@@ -196,7 +195,7 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 	double mean_inv_M[3];
 	for (int t = 0; t < num_Mean; t++) {
 		measure_workspace[t] = new double[3];
-		int index = int(floor(distribution(e2)));
+		int index = int(floor(distribution(rd)));
 		//memcpy(sampleConfig[t], b_X[index], sizeof(cspace));
 		for (int m = 0; m < cdim; m++) {
 			meanConfig[m] += b_X[index][m] / num_Mean;
@@ -241,10 +240,10 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 		//	//count = 0;
 		//	i = 0;
 		//}
-		idx = int(floor(distribution(e2)));
+		idx = int(floor(distribution(rd)));
 		for (int j = 0; j < cdim; j++)
 		{
-			tempState[j] = b_X[idx][j] + Xstd_tran * dist(e2);
+			tempState[j] = b_X[idx][j] + Xstd_tran * dist(rd);
 		}
 		inverseTransform(cur_M, tempState, cur_inv_M);
 		touch_dir << cur_inv_M[1][0], cur_inv_M[1][1], cur_inv_M[1][2];
@@ -353,7 +352,7 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 //{
 //	double *Cum_sum = new double[n_particles];
 //	Cum_sum[0] = W[0];
-//	std::default_random_engine generator;
+//	std::random_device generator;
 //	std::uniform_real_distribution<double> rd(0, 1);
 //	for (int i = 1; i < n_particles; i++)
 //	{
@@ -393,16 +392,16 @@ int main()
 	//double voxel_size = 0.0005; // voxel size for distance transform.
 	int num_voxels[3] = { 200,200,200 };
 	//double range = 0.1; //size of the distance transform
-	double R = 0.001; // radius of the touch probe
+	double R = 0.00; // radius of the touch probe
 
 	double cube_para[3] = { 6, 4, 2 }; // cube size: 6m x 4m x 2m with center at the origin.
 	//double range[3][2] = { {-3.5, 3.5}, {-2.5, 2.5}, {-1.5, 1.5} };
-	particleFilter::cspace X_true = { 2.12, 1.388, 0.818, Pi / 6 + Pi / 400, Pi / 12 + Pi / 420, Pi / 18 - Pi / 380 }; // true state of configuration
+	particleFilter::cspace X_true = { 2.12, 1.388, 0.818, Pi / 6 + Pi / 190, Pi / 12 + Pi / 200, Pi / 18 - Pi / 380 }; // true state of configuration
 	//particleFilter::cspace X_true = { 0, 0, 0.818, 0, 0, 0 }; // true state of configuration
 	cout << "True state: " << X_true[0] << ' ' << X_true[1] << ' ' << X_true[2] << ' ' 
 		 << X_true[3] << ' ' << X_true[4] << ' ' << X_true[5] << endl;
 	particleFilter::cspace b_Xprior[2] = { { 2.11, 1.4, 0.81, Pi / 6, Pi / 12, Pi / 18 },
-										   { 0.03, 0.03, 0.03, Pi / 360, Pi / 360, Pi / 360 } }; // our prior belief
+										   { 0.03, 0.03, 0.03, Pi / 180, Pi / 180, Pi / 180 } }; // our prior belief
 	//particleFilter::cspace b_Xprior[2] = { { 0, 0, 0.81, 0, 0, 0 },
 	//									 { 0.001, 0.001, 0.001, Pi / 3600, Pi / 3600, Pi / 3600 } }; // our prior belief
 
@@ -416,11 +415,10 @@ int main()
 	particleFilter::cspace particles_est;
 	double particles_est_stat[2];
 
-	std::default_random_engine generator;
+	std::random_device generator;
 	std::uniform_real_distribution<double> distribution(0, 1);
-
+	std::normal_distribution<double> dist(0, M_std);
 	double pstart[3];
-	normal_distribution<double> dist(0, M_std);
 	for (int i = 0; i < N_Measure; i++) {
 		// generate measurement in fixed frame, then transform it to particle frame.
 		//1.117218  0.043219  0.204427
