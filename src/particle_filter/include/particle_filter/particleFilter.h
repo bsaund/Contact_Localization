@@ -50,9 +50,9 @@ class particleFilter
   bool updateParticles(cspace *particles_1, cspace *particles0, cspace *particles, double cur_M[2][3],
 			vector<vec4x3> &mesh, int idx_Measure, distanceTransform *dist_transform,
 			int n_particles, double R, double Xstd_ob, double Xstd_tran);
-  //void calcWeight(double *W, int n_particles, double Xstd_tran, 
-		//   cspace *particles0, cspace *particles);
-  //void resampleParticles(cspace *particles0, cspace *particles, double *W, int n_particles);
+  void calcWeight(double *W, int n_particles, double Xstd_tran, 
+		  cspace *particles0, cspace *particles);
+  void resampleParticles(cspace *particles0, cspace *particles, double *W, int n_particles);
 };
 void Transform(double measure[2][3], particleFilter::cspace src, double dest[2][3]);
 void inverseTransform(double measure[3], particleFilter::cspace src, double dest[3]);

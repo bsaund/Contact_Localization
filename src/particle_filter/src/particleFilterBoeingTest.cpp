@@ -18,7 +18,7 @@
 #include <string>
 #include <array>
 
-#define NUM_PARTICLES 500
+#define NUM_PARTICLES 5000
 typedef array<array<float, 3>, 4> vec4x3;
 pcl::PointCloud<pcl::PointXYZ>::Ptr basic_cloud_ptr1(new pcl::PointCloud<pcl::PointXYZ>);
 pcl::PointCloud<pcl::PointXYZ>::Ptr basic_cloud_ptr2(new pcl::PointCloud<pcl::PointXYZ>);
@@ -246,8 +246,8 @@ void visualize()
 
 
 PFilterTest::PFilterTest(int n_particles, particleFilter::cspace b_init[2]) :
-  pFilter_(n_particles, b_init, 0.001, 0.0035, 0.0001, 0.00),
-  num_voxels{200, 200, 200}//,
+  pFilter_(n_particles, b_init, 0.002, 0.0035, 0.0001, 0.00),
+  num_voxels{300, 300, 300}//,
   //dist_transform(num_voxels)
   // particleFilter (int n_particles,
   // 		  double Xstd_ob=0.0001, double Xstd_tran=0.0025,
