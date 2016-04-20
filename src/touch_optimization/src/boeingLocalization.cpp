@@ -86,7 +86,7 @@ int main(int argc, char **argv)
   PlotRayUtils plt;
 
   std::random_device rd;
-  std::normal_distribution<double> randn(0.0,0.00);
+  std::normal_distribution<double> randn(0.0,0.001);
 
   ROS_INFO("Running...");
 
@@ -104,10 +104,10 @@ int main(int argc, char **argv)
   geometry_msgs::Point dir;
   for(int i=0; i<20; i++){
     ros::Duration(1).sleep();
-    //tf::Point start(0.95,0,-0.15);
-    //tf::Point end(0.95,2,-0.15);
-    tf::Point start, end;
-    randomSelection(plt, start, end);
+    tf::Point start(0.95,0,-0.15);
+    tf::Point end(0.95,2,-0.15);
+    //tf::Point start, end;
+    //randomSelection(plt, start, end);
 
     tf::Point intersection;
     if(!getIntersection(plt, start, end, intersection)){

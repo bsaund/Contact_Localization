@@ -29,8 +29,10 @@ typedef unordered_map<string, string> hashmap;
 #define epsilon 0.0001
 #define ARM_LENGTH 0.2
 #define NUM_ITERATION 100000
-#define NUM_BURNIN 1000
+#define NUM_BURNIN 0
 #define norm_pdf(x,s,m)  (( 1 / ( s * sqrt(2*Pi) ) ) * exp( -0.5 * pow( (x-m)/s, 2.0 ) ))
+#define norm_pdf2(x,s,m,f)  (( f ) * exp( -0.5 * pow( (x-m)/s, 2.0 ) ))
+#define norm_pdf3(s)  ( 1 / ( s * sqrt(2*Pi) ) )
 #define NUM_PARTICLES 5000
 
 
@@ -84,7 +86,7 @@ void particleFilter::addObservation(double obs[2][3], vector<vec4x3> &mesh, dist
 	std::random_device generator;
 	std::normal_distribution<double> dist2(0, Xstd_scatter);
 	double W[NUM_PARTICLES];
-	if (!firstObs) {
+	// if (!firstObs) {
 		//bzero(b_Xpre, 2 * sizeof(cspace));
 		for (int k = 0; k < cdim; k++) {
 			for (int j = 0; j < numParticles; j++) {
@@ -97,20 +99,20 @@ void particleFilter::addObservation(double obs[2][3], vector<vec4x3> &mesh, dist
 			}
 			b_Xpre[1][k] = sqrt(b_Xpre[1][k] / numParticles);*/
 		}
-	}
+	// }
 	bool iffar = updateParticles(particles_1, particles0, particles, obs, mesh, idx_obs, dist_transform, numParticles, R, Xstd_ob, Xstd_tran);
-	if (firstObs)
-	{
-		firstObs = false;
-		memcpy(particles0, particles, numParticles*sizeof(cspace));
-		memcpy(particles_1, particles, numParticles*sizeof(cspace));
-	}
+	// if (firstObs)
+	// {
+	// 	firstObs = false;
+	// 	memcpy(particles0, particles, numParticles*sizeof(cspace));
+	// 	memcpy(particles_1, particles, numParticles*sizeof(cspace));
+	// }
 	/*else if (iffar == true)
 	{
 		memcpy(particles0, particles_1, numParticles*sizeof(cspace));
 	}*/
 	calcWeight(W, numParticles, Xstd_tran, particles0, particles);
-	memcpy(particles_1, particles0, numParticles*sizeof(cspace));
+	//memcpy(particles_1, particles0, numParticles*sizeof(cspace));
 	resampleParticles(particles0, particles, W, numParticles);
 	//memcpy(particles0, particles, numParticles*sizeof(cspace));
 
@@ -194,7 +196,7 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 	int dir = idx_Measure % 3;
 	int idx = 0;
 	double newState[6];
-	double mh_state[NUM_ITERATION + 1][6];
+	std::vector<std::vector<double>> mh_state(NUM_ITERATION + 1, std::vector<double>(6,0));
 	double D;
 	//double D2;
 	double cur_inv_M[2][3];
@@ -207,6 +209,7 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 	double distTransSize;
 	double mean_inv_M[3];
 	double safe_point[2][3];
+	double precomp = norm_pdf3(Xstd_ob);
 	for (int t = 0; t < num_Mean; t++) {
 		measure_workspace[t] = new double[3];
 		int index = int(floor(distribution(rd)));
@@ -227,7 +230,7 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 	var_measure[1] /= num_Mean;
 	var_measure[2] /= num_Mean;
 	distTransSize = 4 * max3(sqrt(var_measure[0]), sqrt(var_measure[1]), sqrt(var_measure[2]));
-	distTransSize = 150 * 0.001;
+	distTransSize = 150 * 0.0005;
 	cout << "Touch Std: " << sqrt(var_measure[0]) << "  " << sqrt(var_measure[1]) << "  " << sqrt(var_measure[2]) << endl;
 	double world_range[3][2];
 	cout << "Current Inv_touch: " << mean_inv_M[0] << "    " << mean_inv_M[1] << "    " << mean_inv_M[2] << endl;
@@ -243,10 +246,10 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 	double cube[3] = { 6,4,2 };
 	Eigen::Vector3d gradient;
 	Eigen::Vector3d touch_dir;
-	idx = int(floor(distribution(rd)));
+	//idx = int(floor(distribution(rd)));
 	for (int j = 0; j < cdim; j++)
 	{
-		mh_state[0][j] = b_X[idx][j] + Xstd_tran * dist(rd);
+		mh_state[0][j] = meanConfig[j] + Xstd_tran * dist(rd);
 	}
 	// sample particles
 	//touch_dir << cur_M[1][0], cur_M[1][1], cur_M[1][2];
@@ -267,7 +270,7 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 		//}
 		for (int j = 0; j < cdim; j++)
 		{
-			newState[j] = mh_state[i][j] + Xstd_tran * dist(rd);
+			newState[j] = mh_state[i][j] + Xstd_tran / 40 * dist(rd);
 		}
 		inverseTransform(cur_M, newState, cur_inv_M);
 		touch_dir << cur_inv_M[1][0], cur_inv_M[1][1], cur_inv_M[1][2];
@@ -337,19 +340,19 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 		safe_point[0][0] = cur_M[0][0] - cur_M[1][0] * ARM_LENGTH;
 		safe_point[0][1] = cur_M[0][1] - cur_M[1][1] * ARM_LENGTH;
 		safe_point[0][2] = cur_M[0][2] - cur_M[1][2] * ARM_LENGTH;
-		// if (checkObstacles(mesh, newState, safe_point , D + R) == 1) {
-		// 	continue;
-		// }
+		if (checkObstacles(mesh, newState, safe_point , D + R) == 1) {
+			continue;
+		}
 		if (i == 0) {
 			for (int k = 0; k < cdim; k++) {
 				mh_state[1][k] = newState[k];
 			}
 			D0 = D;
 			i++;
-			p0 = norm_pdf(D0, Xstd_ob, 0);
+			p0 = norm_pdf2(D0, Xstd_ob, 0, precomp);
 			continue;
 		}
-		p1 = norm_pdf(D, Xstd_ob, 0);
+		p1 = norm_pdf2(D, Xstd_ob, 0, precomp);
 		acc_rate = min(1.0, p1 / p0);
 		double acc_rand = mh_dist(rd);
 		if (acc_rand < acc_rate) {
@@ -357,19 +360,19 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 				mh_state[i + 1][k] = newState[k];
 			}
 			D0 = D;
-			cout << "accept: " << p0 << "  " << p1 << "rand: " << acc_rand << endl; 
+			//cout << "accept: " << p0 << "  " << p1 << "rand: " << acc_rand << endl; 
 			p0 = p1;
 		}
 		else {
 			for (int k = 0; k < cdim; k++) {
 				mh_state[i + 1][k] = mh_state[i][k];
 			}
-			cout << "reject: " << p0 << "  " << p1 << "rand: " << acc_rand << endl;
+			//cout << "reject: " << p0 << "  " << p1 << "rand: " << acc_rand << endl;
 		}
 		i++;
 	}
 	int particle_idx;
-	cout << "HIHIH" << endl;
+	//cout << "HIHIH" << endl;
 	for (int ii = 0; ii < n_particles; ii++) {
 		particle_idx = mh_particle(rd);
 		for (int j = 0; j < cdim; j++)
@@ -380,6 +383,7 @@ bool particleFilter::updateParticles(cspace *particles_1, cspace *particles0, cs
 		//	cout << cur_inv_M[0][0] << "  " << cur_inv_M[0][1] << "  " << cur_inv_M[0][2] << "   " << d << "   " << D << //"   " << gradient << "   " << gradient.dot(touch_dir) << 
 		//	     "   " << dist_adjacent[0] << "   " << dist_adjacent[1] << "   " << dist_adjacent[2] << "   " << particles[i][2] << endl;		
 	}
+	delete[] measure_workspace;
 	return iffar;
 };
 
@@ -390,6 +394,7 @@ void particleFilter::calcWeight(double *W, int n_particles, double Xstd_tran,
 	double B = -0.5 / SQ(Xstd_tran);
 	double sum = 0;
 	for (int k = 0; k < n_particles; k++) {
+		W[k] = 0;
 		for (int m = 0; m < n_particles; m++) {
 			W[k] += A*exp(B*(SQ(particles0[m][0] - particles[k][0]) + SQ(particles0[m][1] - particles[k][1]) +
 				SQ(particles0[m][2] - particles[k][2]) +
@@ -411,10 +416,13 @@ void particleFilter::resampleParticles(cspace *particles0, cspace *particles, do
 	Cum_sum[0] = W[0];
 	std::random_device generator;
 	std::uniform_real_distribution<double> rd(0, 1);
+	cout << "weight: ";
 	for (int i = 1; i < n_particles; i++)
 	{
 		Cum_sum[i] = Cum_sum[i - 1] + W[i];
+		cout << W[i] << "  ";
 	}
+	cout << endl;
 	double t;
 	for (int i = 0; i < n_particles; i++)
 	{
