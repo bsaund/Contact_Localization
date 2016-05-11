@@ -48,7 +48,7 @@ void randomSelection(PlotRayUtils &plt, tf::Point &best_start, tf::Point &best_e
   double bestIG;
   bestIG = 0;
   std::random_device rd;
-  std::uniform_real_distribution<double> rand(-2.0,2.0);
+  std::uniform_real_distribution<double> rand(-3.0,3.0);
 
 
   for(int i=0; i<500; i++){
@@ -104,10 +104,10 @@ int main(int argc, char **argv)
   geometry_msgs::Point dir;
   for(int i=0; i<20; i++){
     ros::Duration(1).sleep();
-    tf::Point start(0.95,0,-0.15);
-    tf::Point end(0.95,2,-0.15);
-    //tf::Point start, end;
-    //randomSelection(plt, start, end);
+    //tf::Point start(0.95,0,-0.15);
+    //tf::Point end(0.95,2,-0.15);
+    tf::Point start, end;
+    randomSelection(plt, start, end);
 
     tf::Point intersection;
     if(!getIntersection(plt, start, end, intersection)){

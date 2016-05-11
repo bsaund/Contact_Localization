@@ -41,6 +41,7 @@ class particleFilter
   cspace *particles;  // Current set of particles
   cspace *particles0; // Previous set of particles
   cspace *particles_1; // Previous previous set of particles
+  cspace *temp_particles; // Previous previous set of particles
   cspace particles_est; // Estimated distribution
   double particles_est_stat[2];
   //double *W;
@@ -55,11 +56,12 @@ class particleFilter
   void resampleParticles(cspace *particles0, cspace *particles, double *W, int n_particles);
 };
 void Transform(double measure[2][3], particleFilter::cspace src, double dest[2][3]);
-void inverseTransform(double measure[3], particleFilter::cspace src, double dest[3]);
-void inverseTransform(double measure[2][3], particleFilter::cspace src, double dest[2][3]);
+inline void inverseTransform(double measure[3], particleFilter::cspace src, double dest[3]);
+inline void inverseTransform(double measure[2][3], particleFilter::cspace src, double dest[2][3]);
 int checkInObject(vector<vec4x3> &mesh, double voxel_center[3]);
 int getIntersection(vector<vec4x3> &mesh, double pstart[3], double dir[3], double intersection[3]);
 double testResult(vector<vec4x3> &mesh, double config[6], double touch[2][3], double R);
 int checkObstacles(vector<vec4x3> &mesh, double config[6], double touch[2][3], double dist);
+inline double exp7(double x);
 #endif // PARTICLE_FILTER_H
 
