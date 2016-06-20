@@ -56,15 +56,18 @@ class particleFilter
 		//   cspace *particles0, cspace *particles);
   //void resampleParticles(cspace *particles0, cspace *particles, double *W, int n_particles);
 };
+void Transform(double measure[3], particleFilter::cspace src, double dest[3]);
 void Transform(double measure[2][3], particleFilter::cspace src, double dest[2][3]);
 void inverseTransform(double measure[3], particleFilter::cspace src, double dest[3]);
 void inverseTransform(double measure[2][3], particleFilter::cspace src, double dest[2][3]);
 int checkInObject(vector<vec4x3> &mesh, double voxel_center[3]);
 int getIntersection(vector<vec4x3> &mesh, double pstart[3], double dir[3], double intersection[3]);
+int getIntersectionSeg(vector<vec4x3> &mesh, double pstart[3], double pend[3]);
 double testResult(vector<vec4x3> &mesh, double config[6], double touch[2][3], double R);
 int checkObstacles(vector<vec4x3> &mesh, double config[6], double touch[2][3], double dist);
 int checkObstacles(vector<vec4x3> &mesh, double config[6], double start[2][3], double check_length, double dist);
 int checkIntersections(vector<vec4x3> &mesh, double voxel_center[3], double dir[3], double check_length, double &dist);
 int checkEmptyBin(std::unordered_set<string> *set, particleFilter::cspace config);
+
 #endif // PARTICLE_FILTER_H
 

@@ -160,12 +160,16 @@ add_library(distanceTransformNew src/distanceTransformNew.cpp)
 target_link_libraries(distanceTransformNew
   ${catkin_LIBRARIES})
 
-add_library(rayTri src/raytri.cpp)
+add_library(rayTri src/rayTri.cpp)
 target_link_libraries(rayTri
   ${catkin_LIBRARIES})
 
-add_library(triBox src/tribox.cpp)
+add_library(triBox src/triBox.cpp)
 target_link_libraries(triBox
+  ${catkin_LIBRARIES})
+
+add_library(circleEllipse src/circleEllipse.cpp)
+target_link_libraries(circleEllipse
   ${catkin_LIBRARIES})
 
 ## Declare a C++ executable
@@ -196,6 +200,7 @@ target_link_libraries(pfilterBoeingTest
   distanceTransformNew
   rayTri
   triBox
+  circleEllipse
   ${PCL_LIBRARIES}
 )
 

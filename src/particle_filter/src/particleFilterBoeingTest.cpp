@@ -99,7 +99,6 @@ double SQ(double d)
   return d*d;
 }
 
-
 /*
  *  Converts a cspace pose to a tf::Pose
  */
@@ -135,7 +134,7 @@ bool PFilterTest::addObs(particle_filter::AddObservation::Request &req,
 
   ROS_INFO("...Done adding observation");
   pub_particles.publish(getParticlePoseArray());
-
+  return true;
 }
 
 
@@ -155,9 +154,6 @@ bool PFilterTest::getMesh(std::string filename){
   // 			      + localizationObject);
   // return false;
 }
-
-
-
 
 
 geometry_msgs::PoseArray PFilterTest::getParticlePoseArray()
@@ -190,8 +186,8 @@ geometry_msgs::PoseArray PFilterTest::getParticlePoseArray()
   #endif
 
   particleFilter::cspace particles_est_stat;
-  particleFilter::cspace particles_est;
-  pFilter_.estimatedDistribution(particles_est, particles_est_stat);
+  particleFilter::cspace state;
+  pFilter_.estimatedDistribution(state, particles_est_stat);
   geometry_msgs::PoseArray poseArray;
   for(int i=0; i<50; i++){
     tf::Pose pose = poseAt(particles[i]);
@@ -203,6 +199,8 @@ geometry_msgs::PoseArray PFilterTest::getParticlePoseArray()
     // 	     poseArray.poses[i].position.z);
 
   }
+
+
   return poseArray;
 }
 
@@ -259,8 +257,6 @@ PFilterTest::PFilterTest(int n_particles, particleFilter::cspace b_init[2]) :
   //                            double Xstd_tran=0.0025, (gausian kernel sampling std
   // 				double Xstd_scatter=0.0001, (scatter particles a little before computing mean of distance transform
   //                            double R=0.01) (probe radius);
-
-
 
 {
   

@@ -3,7 +3,7 @@
 #include <Eigen/Dense>
 #include <array>
 #include "distanceTransformNew.h"
-#include "tribox.h"
+#include "triBox.h"
 
 #define max3(a,b,c) ((a>b?a:b)>c?(a>b?a:b):c)
 #define max2(a,b) (a>b?a:b)

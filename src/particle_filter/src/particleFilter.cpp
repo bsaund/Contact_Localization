@@ -8,8 +8,9 @@
 #include <unordered_map>
 #include <array>
 #include <chrono>
-#include "tribox.h"
-#include "raytri.h"
+#include "triBox.h"
+#include "rayTri.h"
+#include "circleEllipse.h"
 #include "distanceTransformNew.h"
 #include "particleFilter.h"
 #include "matrix.h"
@@ -38,10 +39,17 @@ typedef array<array<float, 3>, 4> vec4x3;
 #define SAMPLE_RATE 0.50
 #define MAX_ITERATION 100000
 #define COV_MULTIPLIER 5.0
-#define MIN_STD 1.0e-6
+#define MIN_STD 1.0e-7
+#define BEAM_RADIUS 0.002
+#define BEAM_STEPSIZE 0.001
+#define NUM_POLY_ITERATIONS 20
 
 int total_time = 0;
 int converge_count = 0;
+double TRUE_STATE[6] = {0.3, 0.3, 0.3, 0.5, 0.7, 0.5};
+double RAY_START[3] = {1.33, 0.391705, 0.1536};
+double RAY_END[3] = {0.8, 0.391705, 0.1536};
+
 //vector<vec4x3> importSTL(string filename);
 
 /*
@@ -192,6 +200,187 @@ void particleFilter::addObservation(double obs[2][3], vector<vec4x3> &mesh, dist
 	cout << "Total time: " << total_time << endl;
 	cout << "Average time: " << total_time / 20.0 << endl << endl;
 
+	double ray_start[3] = {1.33, 0.391705, 0.1536};
+	double ray_end[3] = {0.8, 0.391705, 0.1536};
+	double circle_center[2][3] = {{1.117218, 0.391705, 0.1536}, {1, 0, 0}};
+	double circle_radius = 0.004765;
+	double trans_start[3];
+	double trans_end[3];
+	double temp_center[2][3];
+	double trans_center[2][3];
+	Transform(ray_start, particles_mean, trans_start);
+	Transform(ray_end, particles_mean, trans_end);
+	
+	double rate = 0;
+	circleEllipse cEllipse(NUM_POLY_ITERATIONS);
+	for (int ii = 0; ii < numParticles; ii ++) {
+		inverseTransform(trans_start, particles0[ii], ray_start);
+		inverseTransform(trans_end, particles0[ii], ray_end);
+		if(!getIntersectionSeg(mesh, ray_start, ray_end)) {
+			Transform(circle_center, particles0[ii], temp_center);
+			inverseTransform(temp_center, particles_mean, trans_center);
+			Eigen::Vector3d proj_vec;
+			proj_vec << 1, 0, 0;
+			Eigen::Vector3d center_vec;
+			center_vec << trans_center[1][0], trans_center[1][1], trans_center[1][2];
+			center_vec /= center_vec.norm();
+			double minor_length = fabs(center_vec.dot(proj_vec)) * circle_radius;
+			Eigen::Vector2d minor_vec;
+			minor_vec << center_vec[1], center_vec[2];
+			double minor_angle = atan2(center_vec[1], center_vec[2]);
+			Eigen::Matrix2d rot;
+			rot << cos(minor_angle), -sin(minor_angle),
+				   sin(minor_angle), cos(minor_angle);
+
+			Eigen::Vector2d projected_ray, vert_dir, hori_dir;
+			projected_ray << RAY_START[1] - trans_center[0][1], RAY_START[2] - trans_center[0][2];
+			projected_ray = rot * projected_ray;
+			vert_dir << 0,1;
+			hori_dir << 1,0;
+			vert_dir = rot * vert_dir;
+			hori_dir = rot * hori_dir;
+			double xstep_size = BEAM_STEPSIZE * vert_dir(0);
+			double ystep_size = BEAM_STEPSIZE * vert_dir(1);
+			// // cout << "Center Dir: " << trans_center[1][0] << "  "
+			// // 					   << trans_center[1][1] << "  "
+			// // 					   << trans_center[1][2] << endl;
+			cout << "Projected Ray: " << projected_ray << endl;
+
+			bool collided = false;
+			cEllipse.circleEllipseIntersection(BEAM_RADIUS, projected_ray(0), projected_ray(1), circle_radius, minor_length);
+			
+			int tangent_count = 0;
+			double lastX;
+			double lastY;
+			double botY;
+			double estY = 0;
+			double h = minor_length;
+			double w = ;
+			double r = BEAM_RADIUS;
+			bool isfinish = false;
+			double ystart;
+			for (y1 = -minor_length; y1 <= minor_length; y1 += ystep_size) {
+				y = abs(y1);
+				x = abs(x1);
+				cout << "Y: " << y << endl;
+				if ((x*x + (h - y)*(h - y) <= r*r) || ((w - x)*(w - x) + y*y <= r*r)) {
+					if (collided == false && tangent_count == 1) {
+						estY = (y1 + botY)/2 - BEAM_STEPSIZE / 2;
+						tangent_count = 0;
+						collided = true;
+						break;  
+					}
+					collided = true;
+				}
+				else if (x*h + y*w + r*sqrt(h*h + w*w) <= w*h) {
+					if (collided == true && tangent_count == 0) {
+						tangent_count ++;
+						botY = y1;
+					}
+					collided = false;
+				}
+				else if ((x - w)*(x - w) + (y - h)*(y - h) <= r*r || (x <= w && y - r <= h) || (y <= h && x - r <= w)) {
+					// Collision within triangle (0, h) (w, h) (0, 0) is possible 
+					double c0x = w;
+					double c0y = 0;
+					double c2x = 0;
+					double c2y = h;
+					for (int t = 1; t <= NUM_POLY_ITERATIONS; t++) {
+						double c1x = (c0x + c2x)*innerPolygonCoef[t];
+						double c1y = (c0y + c2y)*innerPolygonCoef[t];
+						
+						
+													 // Collision within triangles c3---c1---c2 and c4---c1---c2 is possible
+						double tx = x - c1x; // t indicates a translated coordinate
+						double ty = y - c1y;
+						if (tx*tx + ty*ty <= r*r) {
+							// Collision with t1
+							if (collided == false && tangent_count == 1) {
+								estY = (y1 + botY)/2 - BEAM_STEPSIZE / 2;
+								tangent_count = 0;
+								isfinish = true;
+							}
+							collided = true;
+							break;
+						}
+						double t2x = c2x - c1x;
+						double t2y = c2y - c1y;
+						if (tx*t2x + ty*t2y >= 0 && tx*t2x + ty*t2y <= t2x*t2x + t2y*t2y && (ty*t2x - tx*t2y >= 0 && r*r*(t2x*t2x + t2y*t2y) < (ty*t2x - tx*t2y)*(ty*t2x - tx*t2y))) {
+							// Collision with t1---t2
+							if (collided == true && tangent_count == 0) {
+								tangent_count ++;
+								botY = y1;
+							}
+							collided = false;
+							break;
+						}
+						double t0x = c0x - c1x;
+						double t0y = c0y - c1y;
+						if (tx*t0x + ty*t0y >= 0 && tx*t0x + ty*t0y <= t0x*t0x + t0y*t0y && (ty*t0x - tx*t0y <= 0 && r*r*(t0x*t0x + t0y*t0y) < (ty*t0x - tx*t0y)*(ty*t0x - tx*t0y))) {
+							// Collision with t1---t0
+							if (collided == true && tangent_count == 0) {
+								tangent_count ++;
+								botY = y1;
+							}
+							collided = false;
+							break;
+						}
+						double c3x = (c0x + c1x)*outerPolygonCoef[t]; // Can be calculated later if no visualization
+						double c3y = (c0y + c1y)*outerPolygonCoef[t]; // Can be calculated later if no visualization
+						if ((c3x - x)*(c3x - x) + (c3y - y)*(c3y - y) < r*r) {
+							// t3 is inside circle
+							c2x = c1x;
+							c2y = c1y;
+							
+							continue;
+						}
+						double c4x = c1x - c3x + c1x; // Can be calculated later if no visualization
+						double c4y = c1y - c3y + c1y; // Can be calculated later if no visualization
+						if ((c4x - x)*(c4x - x) + (c4y - y)*(c4y - y) < r*r) {
+							// t4 is inside circle
+							c0x = c1x;
+							c0y = c1y;
+							
+							continue;
+						}
+						double t3x = c3x - c1x;
+						double t3y = c3y - c1y;
+
+						if (ty*t3x - tx*t3y <= 0 || r*r*(t3x*t3x + t3y*t3y) > (ty*t3x - tx*t3y)*(ty*t3x - tx*t3y)) {
+							if (tx*t3x + ty*t3y > 0) {
+								if (abs(tx*t3x + ty*t3y) <= t3x*t3x + t3y*t3y || (x - c3x)*(c0x - c3x) + (y - c3y)*(c0y - c3y) >= 0) {
+									// Circle center is inside t0---t1---t3
+									c2x = c1x;
+									c2y = c1y;
+									continue;
+								}
+							}
+							else if (abs(tx*t3x + ty*t3y) <= t3x*t3x + t3y*t3y || (x - c4x)*(c2x - c4x) + (y - c4y)*(c2y - c4y) >= 0) {
+								// Circle center is inside t1---t2---t4
+								c0x = c1x;
+								c0y = c1y;
+								continue;
+							}
+						}
+						// No collision possible
+						break;
+					}
+					if (isfinish)
+						break;
+				}
+				x1 += xstep_size;
+				
+			}
+			cout << "ESTY: " << estY << endl;
+			// for (x1 = -circle_radius; x1 += BEAM_STEPSIZE; x1 <= circle_radius) {
+
+			// }
+			rate ++;
+		}
+
+	}
+	rate /= numParticles;
+	cout << "Succ Rate: " << rate << endl;
 	//Eigen::MatrixXd centered = mat.rowwise() - mat.colwise().mean();
 	//Eigen::MatrixXd cov = (centered.adjoint() * centered) / double(mat.rows() - 1);
 	/*if (particles_est_stat[1] < 0.005 && (abs(particles_est[0] - b_Xpre[0][0])>0.001 ||
@@ -699,6 +888,15 @@ int main()
 /*
 * Transform the touch point from particle frame
 */
+void Transform(double measure[3], particleFilter::cspace src, double dest[3])
+{
+	double rotation[3][3];
+	double tempM[3];
+	rotationMatrix(src, rotation);
+	multiplyM(rotation, measure, tempM);
+	double transition[3] = { src[0], src[1], src[2] };
+	addM(tempM, transition, dest);
+}
 void Transform(double measure[2][3], particleFilter::cspace src, double dest[2][3])
 {
 	double rotation[3][3];
@@ -784,6 +982,53 @@ int checkInObject(vector<vec4x3> &mesh, double voxel_center[3])
 	return 1;
 }
 
+/*
+ * Find the intersection point between a ray segment and meshes
+ * Input: mesh: mesh arrays
+ * 	      pstart: start point
+ * 	      pend: end point
+ * Output: 1 if intersect
+ *         0 if not
+ */
+int getIntersectionSeg(vector<vec4x3> &mesh, double pstart[3], double pend[3])
+{
+	int num_mesh = int(mesh.size());
+	double vert0[3], vert1[3], vert2[3];
+	double *t = new double;
+	double *u = new double;
+	double *v = new double;
+	double dir[3];
+	dir[0] = pend[0] - pstart[0];
+	dir[1] = pend[1] - pstart[1];
+	dir[2] = pend[2] - pstart[2];
+	double seg_length = sqrt(SQ(dir[0]) + SQ(dir[1]) + SQ(dir[2]));
+	dir[0] /= seg_length;
+	dir[1] /= seg_length;
+	dir[2] /= seg_length;
+	for (int i = 0; i < num_mesh; i++)
+	{
+		vert0[0] = mesh[i][1][0];
+		vert0[1] = mesh[i][1][1];
+		vert0[2] = mesh[i][1][2];
+		vert1[0] = mesh[i][2][0];
+		vert1[1] = mesh[i][2][1];
+		vert1[2] = mesh[i][2][2];
+		vert2[0] = mesh[i][3][0];
+		vert2[1] = mesh[i][3][1];
+		vert2[2] = mesh[i][3][2];
+		if (intersect_triangle(pstart, dir, vert0, vert1, vert2, t, u, v) == 1 && *t < seg_length)
+		{
+			delete t, u, v;
+			// cout << "   " << dir[0] << "  " << dir[1] << "  " << dir[2] << endl;
+			// cout << "   " << pstart[0] << "  " << pstart[1] << "  " << pstart[2] << endl;
+			return 1;
+		}
+
+	}
+	delete t, u, v;
+	
+	return 0;
+}
 /*
  * Find the intersection point between a ray and meshes
  * Input: mesh: mesh arrays
